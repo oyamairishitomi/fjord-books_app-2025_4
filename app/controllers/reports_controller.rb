@@ -19,20 +19,32 @@ class ReportsController < ApplicationController
 
   def create
     @report = current_user.reports.new(report_params)
-
-    if @report.save
-      redirect_to @report, notice: t('controllers.common.notice_create', name: Report.model_name.human)
-    else
-      render :new, status: :unprocessable_entity
+    ActiveRecord::Base.transaction do
+      @report.save!
+      mentioned_ids = extract_mentioned_report_ids(@report.content)
+      mentioned_ids.each do |id|
+        ReportMention.create!(mentioning_report_id: @report.id, mentioned_report_id: id)
+      end
     end
+
+    redirect_to @report, notice: t('controllers.common.notice_create', name: Report.model_name.human)
+  rescue ActiveRecord::RecordInvalid
+    render :new, status: :unprocessable_entity
   end
 
   def update
-    if @report.update(report_params)
-      redirect_to @report, notice: t('controllers.common.notice_update', name: Report.model_name.human)
-    else
-      render :edit, status: :unprocessable_entity
+    ActiveRecord::Base.transaction do
+      @report.update!(report_params)
+      @report.mentioning_report_mentions.destroy_all
+      mentioned_ids = extract_mentioned_report_ids(@report.content)
+      mentioned_ids.each do |id|
+        ReportMention.create!(mentioning_report_id: @report.id, mentioned_report_id: id)
+      end
     end
+
+    redirect_to @report, notice: t('controllers.common.notice_update', name: Report.model_name.human)
+  rescue ActiveRecord::RecordInvalid
+    render :edit, status: :unprocessable_entity
   end
 
   def destroy
@@ -49,5 +61,10 @@ class ReportsController < ApplicationController
 
   def report_params
     params.expect(report: %i[user_id title content])
+  end
+
+  def extract_mentioned_report_ids(content)
+    base_url = Regexp.escape(request.base_url)
+    content.scan(%r{#{base_url}/reports/(\d+)}).flatten.map(&:to_i).uniq
   end
 end
