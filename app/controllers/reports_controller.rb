@@ -21,7 +21,7 @@ class ReportsController < ApplicationController
     @report = current_user.reports.new(report_params)
     ActiveRecord::Base.transaction do
       @report.save!
-      mentioned_ids = extract_mentioned_report_ids(@report.content)
+      mentioned_ids = @report.extract_mentioned_report_ids
       mentioned_ids.each do |id|
         ReportMention.create!(mentioning_report_id: @report.id, mentioned_report_id: id)
       end
@@ -36,7 +36,7 @@ class ReportsController < ApplicationController
     ActiveRecord::Base.transaction do
       @report.update!(report_params)
       @report.mentioning_report_mentions.destroy_all
-      mentioned_ids = extract_mentioned_report_ids(@report.content)
+      mentioned_ids = @report.extract_mentioned_report_ids
       mentioned_ids.each do |id|
         ReportMention.create!(mentioning_report_id: @report.id, mentioned_report_id: id)
       end
@@ -61,10 +61,5 @@ class ReportsController < ApplicationController
 
   def report_params
     params.expect(report: %i[user_id title content])
-  end
-
-  def extract_mentioned_report_ids(content)
-    base_url = Regexp.escape(request.base_url)
-    content.scan(%r{#{base_url}/reports/(\d+)}).flatten.map(&:to_i).uniq
   end
 end

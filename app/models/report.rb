@@ -20,4 +20,9 @@ class Report < ApplicationRecord
   def created_on
     created_at.to_date
   end
+
+  HOST_REGEXP = %r{http://localhost:3000/reports/(\d+)}
+  def extract_mentioned_report_ids
+    content.scan(HOST_REGEXP).flatten.map(&:to_i).uniq
+  end
 end
