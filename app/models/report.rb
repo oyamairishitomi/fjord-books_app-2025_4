@@ -23,6 +23,7 @@ class Report < ApplicationRecord
 
   HOST_REGEXP = %r{http://localhost:3000/reports/(\d+)}
   def extract_mentioned_report_ids
-    content.scan(HOST_REGEXP).flatten.map(&:to_i).uniq
+    ids = content.scan(HOST_REGEXP).flatten.map(&:to_i).uniq
+    Report.where(id: ids).pluck(:id)
   end
 end
